@@ -1,0 +1,31 @@
+{
+  "name": "video-bar",
+  "version": "1.0.0",
+  "description": "学校任务",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zrc1708/video-bar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zrc1708/video-bar/issues"
+  },
+  "homepage": "https://github.com/zrc1708/video-bar#readme",
+  "dependencies": {
+    "baidu-aip-sdk": "^2.4.6",
+    "koa": "^2.11.0",
+    "koa-body": "^4.1.1",
+    "koa-bodyparser": "^4.2.1",
+    "koa-router": "^7.4.0",
+    "koa-static-cache": "^5.1.2",
+    "koa2-cors": "^2.0.6",
+    "mime-types": "^2.1.27",
+    "mysql2": "^2.0.2"
+  }
+}
