@@ -10,7 +10,12 @@
 
     const app = new Koa(); //类似于实例化
    
-    app.use(koaBody());
+    app.use(koaBody({
+        multipart: true,
+        formidable: {
+            maxFileSize: 10000*1024*1024    // 设置上传文件大小最大限制，默认100M
+        }
+    }));
     app.use(cors());//解决跨域问题
     
     app.use(Bodyparser())
