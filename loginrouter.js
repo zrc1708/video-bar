@@ -37,25 +37,6 @@ Date.prototype.Format = function (fmt) { // author: meizz
 
 const loginrouter = new Router()
 
-// 语音合成接口
-// loginrouter.get('/getvoice', async ctx => {
-
-//     // 语音合成，保存到本地文件
-//     client.text2audio('妮可妮可妮', {
-//         spd: 5
-//     }).then(function (result) {
-//         if (result.data) {
-//             console.log('语音合成成功，文件保存到tts.mp3，打开听听吧');
-//             fs.writeFileSync('mp3/tts.mp3', result.data);
-//         } else {
-//             // 合成服务发生错误
-//             console.log('语音合成失败: ' + JSON.stringify(result));
-//         }
-//     }, function (err) {
-//         console.log(err);
-//     });
-
-// });
 
 // 获取mp3接口
 loginrouter.get('/getvoice/:voiceName', async (ctx, next) => {
@@ -133,6 +114,56 @@ loginrouter.post('/register', async ctx => {
     }
 });
 
+// 获取用户设置接口
+loginrouter.get('/getusersetting/:id', async ctx => {
+    let id = ctx.params.id
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `Select * from user where id = ${id};`
+    const [rs] = await connection.query(sql);
+    connection.end(function (err) {})
+
+    if (rs) {
+        ctx.body = {
+            code: 200,
+            tips: '获取用户设置成功',
+            rs:rs[0]
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '获取用户设置失败'
+        }
+    }
+});
+
+// 修改用户设置接口
+loginrouter.post('/updateusersetting', async ctx => {
+    const {sex} = ctx.request.body
+    const {age} = ctx.request.body
+    const {email} = ctx.request.body
+    const {id} = ctx.request.body 
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `UPDATE user SET sex = ${sex} , age = ${age} ,
+                email = '${email}'  WHERE id = '${id}';`
+    const [rs] = await connection.query(sql);
+    connection.end(function (err) {})
+
+    if (rs) {
+        ctx.body = {
+            code: 200,
+            tips: '获取用户设置成功',
+            rs:rs[0]
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '获取用户设置失败'
+        }
+    }
+});
+
 // 文章发表接口
 loginrouter.post('/publish', async ctx => {
     const {title} = ctx.request.body
@@ -183,17 +214,35 @@ loginrouter.post('/publish', async ctx => {
     }
 });
 
+// 获取文章总数
+loginrouter.get('/getallarticlescount', async (ctx, next) => {
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `select count(*) from article ;`
+    const [rs] = await connection.query(sql);
+    connection.end(function(err){})
+
+    ctx.body = {
+        code: 200,
+        tips: 'ok',
+        total: rs[0]['count(*)']
+    }
+});
+
 // 获取所有文章接口
-loginrouter.get('/getallarticles', async ctx => {
+loginrouter.get('/getallarticles/:currentpage/:pagesize', async ctx => {
+
+    let currentpage = ctx.params.currentpage
+    let pagesize = ctx.params.pagesize
+    let num = (currentpage-1)*pagesize
     
     const connection = await Mysql.createConnection(mysql_nico)
     const sql = `Select article.id,article.title,article.content,article.commits,
                 article.views, article.voice, article.posttime, article.userid,
                 user.username ,user.sex ,user.age ,user.age ,user.email ,user.birthtime,
-                avatar.filename
+                avatar.filename ,article.latestcommit
                 from article ,user ,avatar 
                 where article.userid = user.id and article.userid = avatar.userid
-                order by article.id desc;`
+                order by article.id desc limit ${num} , ${pagesize};`
     const [rs] = await connection.query(sql);
     connection.end(function (err) {})
 
@@ -211,12 +260,32 @@ loginrouter.get('/getallarticles', async ctx => {
     }
 });
 
+// 获取用户文章总数
+loginrouter.get('/getmyarticlecount/:id', async (ctx, next) => {
+    let id = ctx.params.id
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `select count(*) from article where userid = ${id};`
+    const [rs] = await connection.query(sql);
+    connection.end(function(err){})
+
+    ctx.body = {
+        code: 200,
+        tips: 'ok',
+        total: rs[0]['count(*)']
+    }
+});
+
 // 获取用户所有文章接口
-loginrouter.get('/getmyarticle/:id', async ctx => {
+loginrouter.get('/getmyarticle/:id/:currentpage/:pagesize', async ctx => {
     let id = ctx.params.id
     
+    let currentpage = ctx.params.currentpage
+    let pagesize = ctx.params.pagesize
+    let num = (currentpage-1)*pagesize
+
     const connection = await Mysql.createConnection(mysql_nico)
-    const sql = `Select * from article where userid = ${id} order by id desc;`
+    const sql = `Select * from article where userid = ${id} order by id desc limit ${num} , ${pagesize};`
     const [rs] = await connection.query(sql);
     connection.end(function (err) {})
 
@@ -239,7 +308,7 @@ loginrouter.get('/getarticle/:id', async ctx => {
     let id = ctx.params.id
     const connection = await Mysql.createConnection(mysql_nico)
     const sql = `Select article.id,article.title,article.content,article.commits,
-                article.views, article.voice, article.posttime, article.userid,
+                article.views, article.voice, article.posttime, article.userid ,article.praise,
                 user.username ,user.sex ,user.age ,user.age ,user.email ,user.birthtime,
                 avatar.filename
                 from article ,user ,avatar 
@@ -270,7 +339,7 @@ loginrouter.get('/getvoicesetting/:id', async ctx => {
     const [rs] = await connection.query(sql);
     connection.end(function (err) {})
 
-    if (rs.length > 0) {
+    if (rs) {
         ctx.body = {
             code: 200,
             tips: '获取设置成功',
@@ -480,7 +549,7 @@ loginrouter.get('/getcommits/:id', async (ctx, next) => {
     
     const connection = await Mysql.createConnection(mysql_nico)
     const sql = `Select commit.id,commit.content,
-                commit.voice, commit.posttime, commit.userid,commit.articleid,
+                commit.voice, commit.posttime, commit.userid,commit.articleid ,commit.praise,
                 user.username ,user.sex ,user.age ,user.age ,user.email ,user.birthtime,
                 avatar.filename
                 from commit ,user ,avatar 
@@ -493,6 +562,310 @@ loginrouter.get('/getcommits/:id', async (ctx, next) => {
         code: 200,
         tips: 'ok',
         rs
+    }
+});
+
+// 获取用户旗下评论总数
+loginrouter.get('/getusercommitscount/:id', async (ctx, next) => {
+    const id = ctx.params.id
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `select count(*) from commit where userid = ${id};`
+    const [rs] = await connection.query(sql);
+    connection.end(function(err){})
+
+    ctx.body = {
+        code: 200,
+        tips: 'ok',
+        total: rs[0]['count(*)']
+    }
+});
+
+// 获取用户旗下评论接口
+loginrouter.get('/getusercommits/:id/:currentpage/:pagesize', async (ctx, next) => {
+    const id = ctx.params.id
+    
+    let currentpage = ctx.params.currentpage
+    let pagesize = ctx.params.pagesize
+
+    let num = (currentpage-1)*pagesize
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `Select commit.id,commit.content,
+                commit.voice, commit.posttime, commit.userid,commit.articleid,
+                user.username ,user.sex ,user.age ,user.age ,user.email ,user.birthtime,
+                avatar.filename ,article.title ,article.views
+                from commit ,user ,avatar ,article
+                where commit.userid = user.id and commit.userid = avatar.userid and commit.userid = ${id}
+                    and article.id = commit.articleid
+                order by commit.id desc limit ${num} , ${pagesize};`
+    const [rs] = await connection.query(sql);
+    connection.end(function(err){})
+
+    ctx.body = {
+        code: 200,
+        tips: 'ok',
+        rs
+    }
+});
+
+// 评论修改接口
+loginrouter.post('/updatecommit', async ctx => {
+    const {id} = ctx.request.body
+    const {userid} = ctx.request.body
+    const {content} = ctx.request.body    
+    const oldfilename = ctx.request.body.voiceName     
+
+    const filename = Date.now()+''+Math.floor(Math.random()*10)+'.mp3'
+
+    const connection = await Mysql.createConnection(mysql_nico)
+
+    // 获取用户的语音设置
+    let sql = `SELECT * FROM voicesetting WHERE userid = '${userid}';`
+    const [rs] = await connection.query(sql);
+
+    // 语音合成，保存到本地文件
+    await client.text2audio(content, {
+        per: rs[0].per,
+        spd: rs[0].spd,
+        pit: rs[0].pit,
+        vol: rs[0].vol,
+    }).then(function (result) {
+        if (result.data) {
+            fs.writeFileSync(`mp3/${filename}`, result.data);
+        } else {
+            console.log('语音合成失败: ' + JSON.stringify(result));
+        }
+    }, function (err) {
+        console.log(err);
+    });
+
+    // 更新数据库
+    sql = `UPDATE commit SET content = '${content}' , voice = '${filename}'  WHERE id = '${id}';`
+    const [rss] = await connection.query(sql);
+
+    connection.end(function (err) {})
+
+    // 删除用户的旧语音文件
+    fs.unlink(path.join(__dirname+'/mp3') + `/${oldfilename}`, (err) => {
+        if(err) throw err;
+    });
+
+    if (rss.affectedRows == 1) {
+        ctx.body = {
+            code: 200,
+            tips: '编辑评论成功'
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '编辑评论失败'
+        }
+    }
+});
+
+// 评论点赞接口
+loginrouter.post('/praisecommit', async ctx => {
+    const {id} = ctx.request.body
+    const {praise} = ctx.request.body     
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `UPDATE commit SET praise = '${Number(praise)+1}' WHERE id = '${id}';`
+    const [rss] = await connection.query(sql);
+
+    if (rss.affectedRows == 1) {
+        ctx.body = {
+            code: 200,
+            tips: '点赞成功'
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '点赞失败'
+        }
+    }
+});
+
+// 文章点赞接口
+loginrouter.post('/praisearticle', async ctx => {
+    const {id} = ctx.request.body
+    const {praise} = ctx.request.body     
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `UPDATE article SET praise = '${Number(praise)+1}' WHERE id = '${id}';`
+    const [rss] = await connection.query(sql);
+
+    if (rss.affectedRows == 1) {
+        ctx.body = {
+            code: 200,
+            tips: '点赞成功'
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '点赞失败'
+        }
+    }
+});
+
+// 文章模糊查询
+loginrouter.get('/searchAllArticle/:title', async ctx => {
+    const {title} = ctx.params   
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `Select article.id,article.title,article.content,article.commits,
+                article.views, article.voice, article.posttime, article.userid,
+                user.username ,user.sex ,user.age ,user.age ,user.email ,user.birthtime,
+                avatar.filename ,article.latestcommit
+                from article ,user ,avatar 
+                where article.userid = user.id and article.userid = avatar.userid and article.title LIKE '%${title}%'
+                order by article.id desc`
+    const [rs] = await connection.query(sql);
+
+    if (rs) {
+        ctx.body = {
+            code: 200,
+            tips: '搜索成功',
+            rs
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '搜索失败'
+        }
+    }
+});
+
+// 用户文章模糊查询
+loginrouter.get('/searchMyArticle/:id/:title', async ctx => {
+    const {title} = ctx.params   
+    const {id} = ctx.params   
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `Select article.id,article.title,article.content,article.commits,
+                article.views, article.voice, article.posttime, article.userid,
+                user.username ,user.sex ,user.age ,user.age ,user.email ,user.birthtime,
+                avatar.filename ,article.latestcommit
+                from article ,user ,avatar 
+                where article.userid = user.id and article.userid = avatar.userid and 
+                article.userid = ${id} and article.title LIKE '%${title}%'
+                order by article.id desc`
+    const [rs] = await connection.query(sql);
+
+    if (rs) {
+        ctx.body = {
+            code: 200,
+            tips: '搜索成功',
+            rs
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '搜索失败'
+        }
+    }
+});
+
+// 修改密码
+loginrouter.post('/changepassword', async ctx => {
+    const {id} = ctx.request.body
+    const {oldpassword} = ctx.request.body     
+    const {password} = ctx.request.body     
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `UPDATE user SET password = '${password}' WHERE id = '${id}' and password = '${oldpassword}';`
+    const [rss] = await connection.query(sql);
+
+    if (rss.affectedRows == 1) {
+        ctx.body = {
+            code: 200,
+            tips: '修改成功'
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '修改失败'
+        }
+    }
+});
+
+// 更新登录时间
+loginrouter.post('/updatelogintime', async ctx => {
+    const {id} = ctx.request.body
+    const time = new Date().Format("yyyy-MM-dd hh:mm:ss")
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `UPDATE user SET logintime = '${time}' WHERE id = '${id}';`
+    const [rss] = await connection.query(sql);
+
+    if (rss.affectedRows == 1) {
+        ctx.body = {
+            code: 200,
+            tips: '修改成功'
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '修改失败'
+        }
+    }
+});
+
+// 获取所有用户接口
+loginrouter.get('/getallusers/:currentpage/:pagesize', async (ctx, next) => {
+    
+    let currentpage = ctx.params.currentpage
+    let pagesize = ctx.params.pagesize
+
+    let num = (currentpage-1)*pagesize
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `Select * from user 
+                order by id desc limit ${num} , ${pagesize};`
+    const [rs] = await connection.query(sql);
+    connection.end(function(err){})
+
+    ctx.body = {
+        code: 200,
+        tips: 'ok',
+        rs
+    }
+});
+
+// 获取用户数量
+loginrouter.get('/countallusers', async (ctx, next) => {
+    
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `select count(*) from user ;`
+    const [rs] = await connection.query(sql);
+    connection.end(function(err){})
+
+    ctx.body = {
+        code: 200,
+        tips: 'ok',
+        total: rs[0]['count(*)']
+    }
+});
+
+// 用户模糊查询
+loginrouter.get('/searchuser/:title', async ctx => {
+    const {title} = ctx.params   
+
+    const connection = await Mysql.createConnection(mysql_nico)
+    const sql = `select * from user where  username LIKE '%${title}%' order by id desc`
+    const [rs] = await connection.query(sql);
+
+    if (rs) {
+        ctx.body = {
+            code: 200,
+            tips: '搜索成功',
+            rs
+        }
+    } else {
+        ctx.body = {
+            code: 201,
+            tips: '搜索失败'
+        }
     }
 });
 
